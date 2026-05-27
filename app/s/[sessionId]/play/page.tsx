@@ -107,6 +107,23 @@ export default function Play() {
     return () => { supabase.removeChannel(channel); };
   }, [params.sessionId, router]);
 
+  // Safety net: while waiting on the "all done" screen, poll session status every 4s
+  // in case a realtime UPDATE event was missed (network blip, subscription drop).
+  useEffect(() => {
+    if (!done) return;
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from('sessions')
+        .select('status')
+        .eq('id', params.sessionId)
+        .single();
+      if (data?.status === 'revealed') {
+        router.push(`/s/${params.sessionId}/reveal`);
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [done, params.sessionId, router]);
+
   const saveAnswer = async (questionId: string, value: number) => {
     if (!identity || !session) return;
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -156,9 +173,15 @@ export default function Play() {
       const answeredIds = new Set((answeredRows ?? []).map((a: { member_id: string }) => a.member_id));
       const allDone = [...participantIds].every((id) => answeredIds.has(id));
 
-      if (allDone && identity.memberId === session.host_member_id) {
-        await supabase.from('sessions').update({ status: 'revealed', revealed_at: new Date().toISOString() }).eq('id', session.id);
-        router.push(`/s/${session.id}/reveal`);
+      // Any player (not just host) can trigger the transition. The DB trigger also handles this
+      // server-side as a safety net. Conditional update prevents double-trigger races.
+      if (allDone) {
+        await supabase
+          .from('sessions')
+          .update({ status: 'revealed', revealed_at: new Date().toISOString() })
+          .eq('id', session.id)
+          .eq('status', 'playing');
+        // No router.push here — the realtime subscription will redirect everyone
       }
     } catch {
       toast.error('Failed to submit answers.');
