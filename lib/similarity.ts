@@ -63,6 +63,28 @@ export function getRankings(
     .sort((a, b) => b.overall - a.overall);
 }
 
+// Adult mode: each question's option_b is the "guilty"/verdict-leaning answer, so a
+// higher answer value = more guilty. We score every participant on that single axis
+// (0–100) and rank them; the top scorer is crowned with the hidden verdict.
+export function computeVerdict(
+  memberAnswers: Record<string, Answer[]>,
+  questionIds: string[],
+  members: { id: string; name: string; avatar_seed: string }[]
+): SimilarityResult[] {
+  return members
+    .map((m) => {
+      const answers = memberAnswers[m.id] ?? [];
+      const scored = questionIds
+        .map((qid) => answers.find((a) => a.question_id === qid))
+        .filter((a): a is Answer => Boolean(a));
+      const avg = scored.length
+        ? scored.reduce((s, a) => s + (a.value - 1) / 3, 0) / scored.length
+        : 0;
+      return { memberId: m.id, name: m.name, avatarSeed: m.avatar_seed, overall: Math.round(avg * 100) };
+    })
+    .sort((a, b) => b.overall - a.overall);
+}
+
 export function computeWhoKnowsMeBest(
   targetId: string,
   pass1Answers: Answer[],

@@ -134,6 +134,11 @@ export default function GroupHome() {
         {activeSessions.map((session) => {
           const theme = THEMES.find((t) => t.id === session.theme);
           const isPlaying = session.status === 'playing';
+          // Adult mode keeps the theme secret while the round is live.
+          const hideTheme = !!theme?.hidden;
+          const bannerAccent = hideTheme ? '#dc2626' : (theme?.accent ?? '#7c3aed');
+          const bannerEmoji = hideTheme ? '🔞' : (theme?.emoji ?? '🎮');
+          const bannerLabel = hideTheme ? 'Mystery Round · 18+' : `${theme?.label} · ${session.mode}`;
           return (
             <motion.div
               key={session.id}
@@ -144,14 +149,14 @@ export default function GroupHome() {
               <Link href={`/s/${session.id}/lobby`}>
                 <div
                   className="rounded-2xl p-4 flex items-center gap-3 cursor-pointer"
-                  style={{ backgroundColor: (theme?.accent ?? '#7c3aed') + '22', border: `1px solid ${theme?.accent ?? '#7c3aed'}44` }}
+                  style={{ backgroundColor: bannerAccent + '22', border: `1px solid ${bannerAccent}44` }}
                 >
-                  <span className="text-2xl">{theme?.emoji ?? '🎮'}</span>
+                  <span className="text-2xl">{bannerEmoji}</span>
                   <div className="flex-1">
-                    <p className="font-semibold text-sm" style={{ color: theme?.accent }}>
+                    <p className="font-semibold text-sm" style={{ color: bannerAccent }}>
                       {isPlaying ? 'Game in progress' : 'Lobby open'}
                     </p>
-                    <p className="text-xs text-muted-foreground">{theme?.label} · {session.mode}</p>
+                    <p className="text-xs text-muted-foreground">{bannerLabel}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </div>

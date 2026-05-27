@@ -6,9 +6,10 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RevealParty } from '@/components/reveal-party';
 import { RevealFamily } from '@/components/reveal-family';
+import { RevealAdult } from '@/components/reveal-adult';
 import { supabase } from '@/lib/supabase/client';
 import { useIdentityStore } from '@/store';
-import { computePairwiseSimilarity, computeFamilyPairwiseSimilarity, getRankings } from '@/lib/similarity';
+import { computePairwiseSimilarity, computeFamilyPairwiseSimilarity, computeVerdict, getRankings } from '@/lib/similarity';
 import { getQuestionsByTheme, getQuestionsByCategory } from '@/lib/questions';
 import { THEMES } from '@/lib/types';
 import type { Session, GroupMember, Answer, SimilarityResult } from '@/lib/types';
@@ -66,6 +67,21 @@ export default function Reveal() {
     const questions = getQuestionsByTheme(s.theme);
     const questionIds = questions.map((q) => q.id);
 
+    // Adult mode: rank every participant on the hidden verdict axis (absolute score,
+    // not pairwise). Top scorer gets crowned.
+    if (s.mode === 'adult') {
+      const verdict = computeVerdict(memberAnswers, questionIds, allMembers);
+      setRankings(verdict);
+      if (id.memberId === s.host_member_id && !s.session_results) {
+        await supabase
+          .from('sessions')
+          .update({ session_results: verdict as unknown as Record<string, unknown> })
+          .eq('id', s.id);
+      }
+      setLoading(false);
+      return;
+    }
+
     let pairwiseMatrix: ReturnType<typeof computePairwiseSimilarity>;
     let categoryMatrices: Record<string, ReturnType<typeof computePairwiseSimilarity>> | undefined;
 
@@ -122,23 +138,29 @@ export default function Reveal() {
     );
   }
 
+  const isAdult = session?.mode === 'adult';
+
   return (
     <main className="flex flex-col min-h-screen py-8 gap-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-2 px-4 max-w-sm mx-auto w-full"
-      >
-        <span className="text-2xl">{theme?.emoji}</span>
-        <div>
-          <h1 className="font-display text-xl font-bold">{theme?.label} results</h1>
-          <p className="text-xs text-muted-foreground">{session?.mode} mode</p>
-        </div>
-      </motion.div>
+      {/* Header — suppressed for adult mode so the theme stays a surprise until RevealAdult unveils it */}
+      {!isAdult && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 px-4 max-w-sm mx-auto w-full"
+        >
+          <span className="text-2xl">{theme?.emoji}</span>
+          <div>
+            <h1 className="font-display text-xl font-bold">{theme?.label} results</h1>
+            <p className="text-xs text-muted-foreground">{session?.mode} mode</p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Reveal content */}
-      {session?.mode === 'party' ? (
+      {isAdult ? (
+        <RevealAdult theme={theme ?? null} rankings={rankings} />
+      ) : session?.mode === 'party' ? (
         <RevealParty myMemberId={identity?.memberId ?? ''} rankings={rankings} accent={accent} />
       ) : (
         <RevealFamily myMemberId={identity?.memberId ?? ''} rankings={rankings} accent={accent} />

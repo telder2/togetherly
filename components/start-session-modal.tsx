@@ -7,7 +7,7 @@ import { X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase/client';
 import { generateSessionCode } from '@/lib/codes';
-import { THEMES } from '@/lib/types';
+import { THEMES, randomAdultTheme } from '@/lib/types';
 import type { Group, ThemeConfig } from '@/lib/types';
 import type { IdentityEntry } from '@/store';
 import { toast } from 'sonner';
@@ -23,43 +23,64 @@ export function StartSessionModal({ open, onClose, group, identity }: StartSessi
   const router = useRouter();
   const [selected, setSelected] = useState<ThemeConfig | null>(null);
   const [loading, setLoading] = useState(false);
+  const [adultLoading, setAdultLoading] = useState(false);
 
   const partyThemes = THEMES.filter((t) => t.mode === 'party');
   const familyThemes = THEMES.filter((t) => t.mode === 'family');
+
+  const createSession = async (theme: ThemeConfig) => {
+    if (!identity) return;
+    const sessionCode = generateSessionCode();
+    const { data: session, error } = await supabase
+      .from('sessions')
+      .insert({
+        group_id: group.id,
+        code: sessionCode,
+        mode: theme.mode,
+        theme: theme.id,
+        status: 'lobby',
+        host_member_id: identity.memberId,
+        current_question_index: 0,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Host auto-joins as participant
+    await supabase.from('session_participants').insert({
+      session_id: session.id,
+      member_id: identity.memberId,
+    });
+
+    router.push(`/s/${session.id}/lobby`);
+  };
 
   const handleStart = async () => {
     if (!selected || !identity) return;
     setLoading(true);
     try {
-      const sessionCode = generateSessionCode();
-      const { data: session, error } = await supabase
-        .from('sessions')
-        .insert({
-          group_id: group.id,
-          code: sessionCode,
-          mode: selected.mode,
-          theme: selected.id,
-          status: 'lobby',
-          host_member_id: identity.memberId,
-          current_question_index: 0,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Host auto-joins as participant
-      await supabase.from('session_participants').insert({
-        session_id: session.id,
-        member_id: identity.memberId,
-      });
-
-      router.push(`/s/${session.id}/lobby`);
+      await createSession(selected);
     } catch (err) {
       console.error(err);
       toast.error('Failed to start session.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Adult mode: pick a random theme so nobody — not even the host — knows what's
+  // being measured until the reveal.
+  const handleStartAdult = async () => {
+    if (!identity) return;
+    setAdultLoading(true);
+    try {
+      await createSession(randomAdultTheme());
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to start session.');
+    } finally {
+      setAdultLoading(false);
     }
   };
 
@@ -133,6 +154,22 @@ export function StartSessionModal({ open, onClose, group, identity }: StartSessi
                   'Choose a theme'
                 )}
               </Button>
+
+              {/* 18+ Bros — random hidden theme, dark humor */}
+              <div className="pt-2 border-t border-white/8">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">🔞 For the bros · 18+</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Dark, funny, ruthless. You won’t know what you’re being judged on until the verdict drops.
+                </p>
+                <Button
+                  onClick={handleStartAdult}
+                  disabled={loading || adultLoading}
+                  className="w-full h-14 text-base font-semibold rounded-xl text-white"
+                  style={{ background: 'linear-gradient(135deg, #dc2626, #7f1d1d)' }}
+                >
+                  {adultLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Start Mystery Round 🔪'}
+                </Button>
+              </div>
             </div>
           </motion.div>
         </>
