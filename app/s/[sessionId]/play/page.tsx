@@ -12,6 +12,7 @@ import { getQuestionsByTheme } from '@/lib/questions';
 import { THEMES } from '@/lib/types';
 import type { Session, Question, Answer } from '@/lib/types';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 export default function Play() {
   const params = useParams<{ sessionId: string }>();
@@ -217,16 +218,26 @@ export default function Play() {
             ))}
           </div>
         </motion.div>
+        {identity && (
+          <Link href={`/g/${identity.groupCode}`} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            ← Back to group
+          </Link>
+        )}
       </main>
     );
   }
 
   return (
     <main className="flex flex-col min-h-screen px-4 py-8 max-w-sm mx-auto gap-6">
-      {/* Ticker */}
+      {/* Top nav */}
       <div className="flex items-center justify-between text-xs text-muted-foreground">
+        {identity ? (
+          <Link href={`/g/${identity.groupCode}`} className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
+            ← {identity.groupName}
+          </Link>
+        ) : <span />}
         <span style={{ color: accent }}>{theme?.emoji} {theme?.label}</span>
-        <span>{totalAnswered}/{totalParticipants} finished</span>
+        <span>{totalAnswered}/{totalParticipants} done</span>
       </div>
 
       <AnimatePresence mode="wait">
@@ -235,11 +246,10 @@ export default function Play() {
             key={currentQuestion.id}
             question={currentQuestion}
             value={currentValue}
-            onChange={async (v) => {
-              await saveAnswer(currentQuestion.id, v);
-              if (currentIdx < questions.length - 1) {
-                setTimeout(() => setCurrentIdx((i) => i + 1), 300);
-              }
+            onChange={(v) => {
+              // Save in the background — don't auto-advance. User picks lean
+              // intensity and then taps "Next →" explicitly.
+              saveAnswer(currentQuestion.id, v);
             }}
             accent={accent}
             questionNumber={currentIdx + 1}

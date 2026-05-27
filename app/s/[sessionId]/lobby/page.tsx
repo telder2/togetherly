@@ -141,8 +141,8 @@ export default function Lobby() {
   return (
     <main className="flex flex-col min-h-screen px-4 py-8 max-w-sm mx-auto gap-6">
       {/* Back */}
-      {session && (
-        <Link href={`/g/${allGroupMembers[0]?.group_id ? '' : ''}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+      {identity && (
+        <Link href={`/g/${identity.groupCode}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
           Group home
         </Link>
