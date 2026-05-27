@@ -144,6 +144,13 @@ export default function Lobby() {
   const isHost = identity?.memberId === session?.host_member_id;
   const isParticipant = participants.some((p) => p.id === identity?.memberId);
   const theme = THEMES.find((t) => t.id === session?.theme);
+  // Adult mode keeps the theme secret until the reveal — show a neutral mystery
+  // accent so even the color doesn't hint at what's coming.
+  const isHidden = !!theme?.hidden;
+  const displayEmoji = isHidden ? '🔞' : theme?.emoji;
+  const displayLabel = isHidden ? 'Mystery Round' : theme?.label;
+  const displaySub = isHidden ? '18+ · Mode hidden until the verdict' : `${session?.mode} mode · Waiting for players`;
+  const accent = isHidden ? '#dc2626' : (theme?.accent ?? '#7c3aed');
   const canStart = isHost && participants.length >= 2;
 
   if (loading) {
@@ -167,10 +174,10 @@ export default function Lobby() {
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="space-y-1">
         <div className="flex items-center gap-2">
-          <span className="text-3xl">{theme?.emoji}</span>
+          <span className="text-3xl">{displayEmoji}</span>
           <div>
-            <h1 className="font-display text-2xl font-bold">{theme?.label}</h1>
-            <p className="text-sm text-muted-foreground capitalize">{session?.mode} mode · Waiting for players</p>
+            <h1 className="font-display text-2xl font-bold">{displayLabel}</h1>
+            <p className="text-sm text-muted-foreground capitalize">{displaySub}</p>
           </div>
         </div>
       </motion.div>
@@ -178,8 +185,8 @@ export default function Lobby() {
       {/* Waiting pulsing indicator */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: theme?.accent }} />
-          <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: theme?.accent }} />
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: accent }} />
+          <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: accent }} />
         </span>
         Lobby open — share your group code to let people join
       </div>
@@ -242,7 +249,7 @@ export default function Lobby() {
             onClick={startGame}
             disabled={!canStart || starting}
             className="w-full h-14 text-base font-semibold rounded-xl"
-            style={canStart ? { background: `linear-gradient(135deg, ${theme?.accent}, ${theme?.accent}99)` } : {}}
+            style={canStart ? { background: `linear-gradient(135deg, ${accent}, ${accent}99)` } : {}}
           >
             {starting ? (
               <Loader2 className="w-4 h-4 animate-spin" />

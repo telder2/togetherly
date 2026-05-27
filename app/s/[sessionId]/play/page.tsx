@@ -31,7 +31,8 @@ export default function Play() {
 
   const identity = session ? getIdentity(session.group_id) : null;
   const theme = session ? THEMES.find((t) => t.id === session.theme) : null;
-  const accent = theme?.accent ?? '#7c3aed';
+  const isHidden = !!theme?.hidden;
+  const accent = isHidden ? '#dc2626' : (theme?.accent ?? '#7c3aed');
 
   const loadSession = useCallback(async () => {
     const { data: s } = await supabase.from('sessions').select('*').eq('id', params.sessionId).single();
@@ -236,7 +237,7 @@ export default function Play() {
             ← {identity.groupName}
           </Link>
         ) : <span />}
-        <span style={{ color: accent }}>{theme?.emoji} {theme?.label}</span>
+        <span style={{ color: accent }}>{isHidden ? '🔞 Mystery' : `${theme?.emoji} ${theme?.label}`}</span>
         <span>{totalAnswered}/{totalParticipants} done</span>
       </div>
 
