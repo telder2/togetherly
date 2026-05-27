@@ -83,17 +83,33 @@ export default function Lobby() {
     return () => { supabase.removeChannel(channel); };
   }, [params.sessionId, router]);
 
-  // Realtime: participants joining
+  // Realtime: participants joining the session
   useEffect(() => {
-    if (!session) return;
+    const sid = session?.id;
+    if (!sid) return;
     const channel = supabase
-      .channel(`lobby-participants-${session.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'session_participants', filter: `session_id=eq.${session.id}` },
+      .channel(`lobby-participants-${sid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'session_participants', filter: `session_id=eq.${sid}` },
         () => loadSession()
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [session, loadSession]);
+  }, [session?.id, loadSession]);
+
+  // Realtime: people joining the group itself (creating new identities). Without
+  // this the lobby only re-fetches when session_participants changes — so a
+  // brand-new group member doesn't appear in the "not yet joined" list until refresh.
+  useEffect(() => {
+    const gid = session?.group_id;
+    if (!gid) return;
+    const channel = supabase
+      .channel(`lobby-group-members-${gid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${gid}` },
+        () => loadSession()
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.group_id, loadSession]);
 
   const joinSession = async () => {
     if (!identity || !session) return;
